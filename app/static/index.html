@@ -373,8 +373,8 @@ function renderSim(){
     ["Draft matched", m.draft_matched.toLocaleString(), pct(m.draft_match_rate, 2) + " match rate"],
     ["Change (pp)", `<span class="${dir(m.pp_change)}">${signed(m.pp_change, " pp")}</span>`, "draft − active match rate"],
     ["Relative reach", `<span class="${dir(m.relative_reach_change)}">${m.relative_reach_change == null ? "n/a" : signed((m.relative_reach_change*100).toFixed(1), "%")}</span>`, "vs active matched"],
-    ["Newly eligible", `<span class="up">+${m.newly_eligible.toLocaleString()}</span>`, "enter the segment"],
-    ["No longer eligible", `<span class="down">−${m.no_longer_eligible.toLocaleString()}</span>`, "leave the segment"],
+    ["Newly eligible", `<span class="${m.newly_eligible ? "up" : ""}">${m.newly_eligible ? "+" : ""}${m.newly_eligible.toLocaleString()}</span>`, "enter the segment"],
+    ["No longer eligible", `<span class="${m.no_longer_eligible ? "down" : ""}">${m.no_longer_eligible ? "−" : ""}${m.no_longer_eligible.toLocaleString()}</span>`, "leave the segment"],
     ["Flip rate", pct(m.flip_rate, 2), m.unchanged.toLocaleString() + " unchanged"],
   ].map(([l, v, sub]) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="l">${sub}</div></div>`).join("");
   const max = Math.max(m.active_matched, m.draft_matched, 1);
