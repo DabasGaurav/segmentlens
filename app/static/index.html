@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SegmentLens Playground</title>
+<style>
+:root{
+  --bg:#f6f7f9;--panel:#ffffff;--ink:#16181d;--muted:#5d6472;--line:#e3e6eb;--soft:#f0f2f5;
+  --accent:#2f5bea;--accent-ink:#ffffff;--good:#13795b;--good-bg:#e6f4ee;--bad:#b42318;--bad-bg:#fdecea;
+  --warn:#9a5b00;--warn-bg:#fff4e0;--info:#335c8a;--info-bg:#e8f0fa;--code:#f3f4f7;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111317;--panel:#181b21;--ink:#e8eaef;--muted:#9aa1ae;--line:#2a2f38;--soft:#20242b;
+  --accent:#6b8cff;--accent-ink:#0b0d12;--good:#4cc79a;--good-bg:#16302a;--bad:#ff8a80;--bad-bg:#3a1d1b;
+  --warn:#f0b357;--warn-bg:#352812;--info:#8fb6e6;--info-bg:#1a2737;--code:#1d2128;}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5}
+.brand b{font-size:17px}.brand span{color:var(--muted);margin-left:8px}
+.who{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.seg-ctl{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg-ctl button{border:0;background:var(--panel);color:var(--ink);padding:6px 12px;cursor:pointer;font:inherit}
+.seg-ctl button.on{background:var(--accent);color:var(--accent-ink)}
+.pill{font-family:var(--mono);font-size:12px;background:var(--soft);border-radius:6px;padding:3px 8px;color:var(--muted)}
+a{color:var(--accent)}
+main{max-width:1320px;margin:0 auto;padding:16px 20px 40px;display:grid;grid-template-columns:280px 1fr;gap:16px}
+@media (max-width:900px){main{grid-template-columns:1fr;padding:12px 16px}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card h2{font-size:15px;margin:0 0 10px}.card h3{font-size:13px;margin:14px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.intro{grid-column:1/-1;display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.steps{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 0;padding:0;list-style:none;counter-reset:s}
+.steps li{counter-increment:s;background:var(--soft);border-radius:8px;padding:6px 10px;font-size:13px}
+.steps li::before{content:counter(s);font-weight:700;color:var(--accent);margin-right:6px}
+.muted{color:var(--muted)}.small{font-size:12px}
+.seglist button{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;font:inherit}
+.seglist button.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.seglist .meta{font-size:12px;color:var(--muted)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:-4px 0 12px;flex-wrap:wrap}
+.tabs button{border:0;background:none;color:var(--muted);padding:8px 12px;cursor:pointer;font:inherit;border-bottom:2px solid transparent}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+.rule{font-family:var(--mono);font-size:12.5px;background:var(--code);border-radius:8px;padding:8px 10px;white-space:pre-wrap;word-break:break-word}
+textarea{width:100%;min-height:210px;font-family:var(--mono);font-size:12.5px;background:var(--code);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;resize:vertical}
+input,select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer;font:inherit}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.ghost{background:var(--soft)}
+.btn:disabled{opacity:.5;cursor:default}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:700px){.two{grid-template-columns:1fr}}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.kpi{background:var(--soft);border-radius:8px;padding:8px 10px}.kpi .v{font-size:20px;font-weight:650}.kpi .l{font-size:12px;color:var(--muted)}
+.up{color:var(--good)}.down{color:var(--bad)}
+.bars{margin:10px 0}.bar{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px}
+.bar .track{flex:1;background:var(--soft);border-radius:4px;height:14px;position:relative;overflow:hidden}
+.bar .fill{position:absolute;inset:0 auto 0 0;background:var(--muted);border-radius:4px}.bar .fill.d{background:var(--accent)}
+.warn{border-radius:8px;padding:8px 10px;margin:6px 0;font-size:13px}
+.warn.block{background:var(--bad-bg);color:var(--bad)}.warn.warn{background:var(--warn-bg);color:var(--warn)}.warn.info{background:var(--info-bg);color:var(--info)}
+.warn b{font-family:var(--mono);font-size:12px;margin-right:6px}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600}
+.flip{border:1px solid var(--line);border-radius:8px;padding:10px;margin:8px 0}
+.chips{display:flex;gap:4px;flex-wrap:wrap}.chip{font-family:var(--mono);font-size:11.5px;background:var(--soft);border-radius:5px;padding:2px 6px}
+.tag{font-size:11px;font-weight:700;border-radius:5px;padding:2px 6px}
+.tag.yes{background:var(--good-bg);color:var(--good)}.tag.no{background:var(--bad-bg);color:var(--bad)}
+.cond{font-family:var(--mono);font-size:12px;margin:2px 0}
+.cond.ok::before{content:"✓ ";color:var(--good)}.cond.fail::before{content:"✗ ";color:var(--bad)}
+.notice{background:var(--info-bg);color:var(--info);border-radius:8px;padding:8px 10px;font-size:12.5px;margin:8px 0}
+.result{border-radius:8px;padding:10px;margin:8px 0;font-size:13px}
+.result.ok{background:var(--good-bg);color:var(--good)}.result.err{background:var(--bad-bg);color:var(--bad)}
+.result pre{margin:6px 0 0;white-space:pre-wrap;font-family:var(--mono);font-size:12px;color:var(--ink)}
+#console{grid-column:1/-1}
+.log{font-family:var(--mono);font-size:12px;border-top:1px solid var(--line)}
+.log details{border-bottom:1px solid var(--line);padding:4px 0}.log summary{cursor:pointer;list-style:none}
+.log pre{white-space:pre-wrap;word-break:break-word;background:var(--code);padding:8px;border-radius:6px;max-height:320px;overflow:auto}
+.s2{color:var(--good)}.s4,.s5{color:var(--bad)}
+.ack label{display:block;margin:4px 0;font-size:13px}
+.hidden{display:none}
+.grid-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
+.grid-form label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+.catpick{display:flex;flex-wrap:wrap;gap:4px;max-height:120px;overflow:auto;border:1px solid var(--line);border-radius:6px;padding:6px}
+.catpick label{font-size:12px;color:var(--ink);flex-direction:row;align-items:center;gap:4px;background:var(--soft);border-radius:5px;padding:2px 6px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><b>SegmentLens</b><span>See the blast radius of a targeting change before it ships</span></div>
+  <div class="who">
+    <span class="small muted">Act as</span>
+    <div class="seg-ctl" id="roles"></div>
+    <span class="pill" id="principal">connecting…</span>
+    <button class="btn ghost" id="resetBtn" title="Restore seed segments in your sandbox">Reset sandbox</button>
+    <a href="/docs" target="_blank" rel="noopener">API docs ↗</a>
+  </div>
+</header>
+<main>
+  <section class="card intro">
+    <div style="flex:1;min-width:260px">
+      <h2>Internal targeting-segment API: playground</h2>
+      <div class="muted small">Everything on this page calls the real API. Each visitor gets an isolated sandbox with server-issued identities, and the role switcher only swaps which server-issued token is used. Buttons stay enabled for every role <b>on purpose</b>, so you can watch the server refuse a request a role isn't allowed to make. All traffic is a <b>synthetic</b>, seeded sample of 20,000 ad opportunities.</div>
+      <ol class="steps"><li>Pick a segment</li><li>Edit a draft rule</li><li>Simulate vs active</li><li>Inspect flips & warnings</li><li>Publish (editor only)</li><li>Evaluate live requests</li></ol>
+    </div>
+  </section>
+
+  <aside class="card">
+    <h2>Segments</h2>
+    <div class="seglist" id="seglist"></div>
+    <div class="small muted" id="datasetInfo"></div>
+  </aside>
+
+  <section class="card">
+    <div class="tabs" id="tabs">
+      <button data-tab="change" class="on">Change & simulate</button>
+      <button data-tab="evaluate">Evaluate a request</button>
+      <button data-tab="history">Versions & audit</button>
+    </div>
+
+    <div id="tab-change">
+      <div class="two">
+        <div>
+          <h3>Active definition <span id="activeVer" class="pill"></span></h3>
+          <div class="rule" id="activeText">–</div>
+        </div>
+        <div>
+          <h3>Draft <span id="draftVer" class="pill">none</span></h3>
+          <div class="rule" id="draftText">No draft saved.</div>
+        </div>
+      </div>
+      <h3>Edit draft rule (JSON)</h3>
+      <div class="row small" id="presets" style="margin-bottom:6px"></div>
+      <textarea id="editor" spellcheck="false"></textarea>
+      <div class="small muted">Grammar: <code>{"all":[…]}</code> · <code>{"any":[…]}</code> · <code>{"attr","op":"eq","value"}</code> · <code>{"attr","op":"in"|"not_in","values":[…]}</code>. Attributes: content_category, country, device_type, placement_type, publisher_id. Missing request data fails closed.</div>
+      <div class="row" style="margin-top:10px">
+        <input id="note" placeholder="Change note (optional)" maxlength="280" style="flex:1;min-width:200px">
+        <button class="btn" id="saveBtn">① Save draft</button>
+        <button class="btn primary" id="simBtn">② Simulate vs active</button>
+      </div>
+      <div id="actionResult"></div>
+
+      <div id="simPanel" class="hidden">
+        <h3>Impact on the synthetic sample <span class="pill" id="simId"></span></h3>
+        <div class="kpis" id="kpis"></div>
+        <div class="bars" id="bars"></div>
+        <div id="warnings"></div>
+        <h3>Co-eligibility with other active segments</h3>
+        <table id="overlap"></table>
+        <div class="small muted">Share of draft-matched requests that also match another segment. This is not cannibalisation: deal priority, floors and pricing decide that, and they're out of scope.</div>
+        <h3>Sample decision flips (why they changed)</h3>
+        <div id="flips"></div>
+        <h3>③ Publish</h3>
+        <div class="ack" id="ack"></div>
+        <div class="row"><button class="btn primary" id="pubBtn">Publish this simulated draft</button></div>
+        <div class="small muted">The server requires the simulation ID, the expected active version, and an acknowledgement for every warn-level warning. If the draft has changed since this simulation, the server returns 409 SIMULATION_STALE.</div>
+        <div class="notice" id="disclaimer"></div>
+      </div>
+    </div>
+
+    <div id="tab-evaluate" class="hidden">
+      <div class="muted small">This is what an ad-serving component sends. Evaluator tokens get coarse reason codes only. Per-condition traces (<code>?debug=true</code>) need the editor's <code>evaluate:trace</code> scope, which shows privileged debug output being kept out of serving responses.</div>
+      <div class="row small" id="ctxPresets" style="margin:8px 0"></div>
+      <div class="grid-form">
+        <label>publisher_id<select id="c_pub"></select></label>
+        <label>country<select id="c_country"></select></label>
+        <label>device_type<select id="c_device"></select></label>
+        <label>placement_type<select id="c_place"></select></label>
+      </div>
+      <label class="small muted" style="display:block;margin-top:8px">content_category (multi-valued; none selected = missing)</label>
+      <div class="catpick" id="c_cats"></div>
+      <div class="row" style="margin-top:10px">
+        <label class="small"><input type="checkbox" id="c_debug"> debug trace</label>
+        <button class="btn primary" id="evalBtn">Evaluate against active segments</button>
+      </div>
+      <div id="evalOut"></div>
+    </div>
+
+    <div id="tab-history" class="hidden">
+      <h3>Published versions</h3><table id="versions"></table>
+      <h3>Audit log (this sandbox)</h3><table id="audit"></table>
+    </div>
+  </section>
+
+  <section class="card" id="console">
+    <h2>API console <span class="small muted">every request this page made, with the real status and body</span></h2>
+    <div class="log" id="log"></div>
+  </section>
+</main>
+
+<script>
+const API = "/api/v1";
+const S = {session:null, role:"editor", segs:[], cur:null, detail:null, sim:null, dataset:null};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pct = (x, d=1) => x == null ? "n/a" : (x*100).toFixed(d) + "%";
+const signed = (x, suf="") => x == null ? "n/a" : (x > 0 ? "+" : "") + x + suf;
+
+const VOCAB = {
+  publisher_id: Array.from({length:40}, (_, i) => "pub_" + (101+i)),
+  country: ["US","IN","GB","CA","DE","FR","AU","BR","JP","MX","ES"],
+  device_type: ["mobile","desktop","tablet","ctv"],
+  placement_type: ["display","native","video"],
+  content_category: ["IAB-SPORTS","IAB-SPORTS-SOCCER","IAB-SPORTS-CRICKET","IAB-SPORTS-NFL","IAB-ENTERTAINMENT","IAB-ENT-MOVIES","IAB-ENT-MUSIC","IAB-ENT-TV","IAB-NEWS","IAB-NEWS-POLITICS","IAB-NEWS-WORLD","IAB-NEWS-LOCAL","IAB-TECH","IAB-TECH-MOBILE","IAB-TECH-SOFTWARE","IAB-FINANCE","IAB-FIN-INVESTING","IAB-FIN-BANKING","IAB-TRAVEL","IAB-TRAVEL-AIR","IAB-TRAVEL-HOTELS","IAB-FOOD","IAB-FOOD-RECIPES","IAB-FOOD-DINING","IAB-AUTOS","IAB-AUTOS-EV","IAB-AUTOS-REVIEWS","IAB-HEALTH","IAB-HEALTH-FITNESS","IAB-HEALTH-NUTRITION","IAB-GAMING","IAB-GAMING-MOBILE","IAB-GAMING-CONSOLE"]
+};
+
+// Scenario presets: realistic edits an AdOps user might make. Results are computed by the server.
+const PRESETS = {
+  seg_sports_mobile: [
+    ["Broaden: add Entertainment", {all:[{attr:"content_category",op:"in",values:["IAB-SPORTS","IAB-ENTERTAINMENT"]},{attr:"device_type",op:"eq",value:"mobile"},{attr:"country",op:"in",values:["US","CA"]}]}],
+    ["Narrow: soccer only", {all:[{attr:"content_category",op:"in",values:["IAB-SPORTS-SOCCER"]},{attr:"device_type",op:"eq",value:"mobile"},{attr:"country",op:"in",values:["US","CA"]}]}],
+    ["Add tablet", {all:[{attr:"content_category",op:"in",values:["IAB-SPORTS"]},{attr:"device_type",op:"in",values:["mobile","tablet"]},{attr:"country",op:"in",values:["US","CA"]}]}],
+    ["Mistake: AND instead of OR", {all:[{attr:"content_category",op:"in",values:["IAB-SPORTS"]},{attr:"device_type",op:"eq",value:"mobile"},{attr:"device_type",op:"eq",value:"tablet"},{attr:"country",op:"in",values:["US","CA"]}]}],
+    ["Invalid: unknown attribute", {all:[{attr:"content_category",op:"in",values:["IAB-SPORTS"]},{attr:"user_age",op:"eq",value:"18-24"}]}],
+  ],
+  seg_premium_video_safe: [
+    ["Also exclude all News", {all:[{attr:"placement_type",op:"eq",value:"video"},{attr:"country",op:"in",values:["US","GB","CA","AU"]},{attr:"content_category",op:"not_in",values:["IAB-NEWS","IAB-NEWS-POLITICS"]}]}],
+    ["Add IN market", {all:[{attr:"placement_type",op:"eq",value:"video"},{attr:"country",op:"in",values:["US","GB","CA","AU","IN"]},{attr:"content_category",op:"not_in",values:["IAB-NEWS-POLITICS"]}]}],
+  ],
+  seg_entertainment_all: [
+    ["Narrow: Movies & TV on CTV", {all:[{attr:"content_category",op:"in",values:["IAB-ENT-MOVIES","IAB-ENT-TV"]},{attr:"device_type",op:"eq",value:"ctv"}]}],
+  ],
+  seg_finance_us_desktop: [
+    ["Add mobile (any device)", {all:[{attr:"content_category",op:"in",values:["IAB-FINANCE"]},{attr:"country",op:"eq",value:"US"}]}],
+  ],
+};
+const CTX_PRESETS = [
+  ["Sports, mobile, US", {publisher_id:"pub_101",country:"US",device_type:"mobile",placement_type:"display",content_category:["IAB-SPORTS","IAB-SPORTS-NFL"]}],
+  ["Entertainment, mobile, CA", {publisher_id:"pub_102",country:"CA",device_type:"mobile",placement_type:"native",content_category:["IAB-ENTERTAINMENT","IAB-ENT-MUSIC"]}],
+  ["Unclassified page (missing category)", {publisher_id:"pub_117",country:"US",device_type:"ctv",placement_type:"video"}],
+  ["Political news video, GB", {publisher_id:"pub_103",country:"GB",device_type:"desktop",placement_type:"video",content_category:["IAB-NEWS","IAB-NEWS-POLITICS"]}],
+];
+
+// ---------------------------------------------------------------- storage (best effort)
+const store = {
+  get(k){ try { return JSON.parse(sessionStorage.getItem(k)); } catch { return null; } },
+  set(k, v){ try { sessionStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k){ try { sessionStorage.removeItem(k); } catch {} },
+};
+
+// ---------------------------------------------------------------- API client with console log
+function token(){ const i = S.session?.identities.find(x => x.role === S.role); return i?.token; }
+
+async function call(method, path, body, opts={}){
+  const headers = {"Content-Type":"application/json"};
+  const t = opts.noAuth ? null : token();
+  if (t) headers.Authorization = "Bearer " + t;
+  const started = performance.now();
+  let res, data = null;
+  try {
+    res = await fetch(API + path, {method, headers, body: body === undefined ? undefined : JSON.stringify(body)});
+    const txt = await res.text();
+    data = txt ? JSON.parse(txt) : null;
+  } catch (e) {
+    logCall(method, path, body, 0, {error: String(e)}, 0); throw e;
+  }
+  const ms = Math.round(performance.now() - started);
+  logCall(method, path, body, res.status, opts.redact ? redactTokens(data) : data, ms);
+  if (res.status === 401 && !opts.retried && !opts.noAuth) {   // sandbox expired: start a new one
+    await newSession(); return call(method, path, body, {...opts, retried:true});
+  }
+  return {status: res.status, ok: res.ok, data};
+}
+function redactTokens(d){ if (!d?.identities) return d; return {...d, identities: d.identities.map(i => ({...i, token: i.token.slice(0,6)+"…(hidden)"}))}; }
+function logCall(method, path, body, status, data, ms){
+  const el = document.createElement("details");
+  const who = S.session ? (S.session.identities.find(x => x.role === S.role)?.principal || "") : "";
+  el.innerHTML = `<summary><span class="s${String(status)[0]}">${status || "ERR"}</span> ${esc(method)} ${esc(API+path)} <span class="muted">· ${ms} ms · ${esc(who)}</span></summary>` +
+    (body !== undefined ? `<div class="muted">request</div><pre>${esc(JSON.stringify(body, null, 2))}</pre>` : "") +
+    `<div class="muted">response</div><pre>${esc(JSON.stringify(data, null, 2))}</pre>`;
+  $("log").prepend(el);
+  while ($("log").children.length > 40) $("log").lastChild.remove();
+}
+
+// ---------------------------------------------------------------- session + roles
+async function newSession(){
+  const r = await call("POST", "/demo/sessions", undefined, {noAuth:true, redact:true});
+  if (!r.ok) { showResult(false, r); return; }
+  S.session = r.data; store.set("sl_session", r.data);
+}
+function renderRoles(){
+  const box = $("roles"); box.innerHTML = "";
+  ["viewer","editor","evaluator"].forEach(role => {
+    const b = document.createElement("button"); b.textContent = role[0].toUpperCase() + role.slice(1);
+    b.className = role === S.role ? "on" : "";
+    b.onclick = () => { S.role = role; store.set("sl_role", role); renderRoles(); };
+    box.appendChild(b);
+  });
+  const id = S.session?.identities.find(x => x.role === S.role);
+  $("principal").textContent = id ? `${id.principal} · ${id.scopes.length} scopes` : "no session";
+  $("principal").title = id ? "Server-held scopes: " + id.scopes.join(" ") : "";
+}
+
+// ---------------------------------------------------------------- segments
+async function loadSegments(selectId){
+  const r = await call("GET", "/segments");
+  if (!r.ok) { $("seglist").innerHTML = `<div class="result err">${esc(r.data?.error?.code)}: ${esc(r.data?.error?.message)}<br><span class="small">Switch to Viewer or Editor to list segments.</span></div>`; return; }
+  S.segs = r.data.items;
+  const box = $("seglist"); box.innerHTML = "";
+  S.segs.forEach(s => {
+    const b = document.createElement("button");
+    b.className = s.id === (selectId || S.cur) ? "on" : "";
+    b.innerHTML = `<div><b>${esc(s.name)}</b></div><div class="meta">${esc(s.id)} · active v${s.active_version ?? "–"}${s.has_draft ? " · draft v"+s.draft_version : ""}</div>`;
+    b.onclick = () => selectSegment(s.id);
+    box.appendChild(b);
+  });
+  if (!S.cur && S.segs.length) await selectSegment(selectId || S.segs[0].id);
+}
+async function selectSegment(id, keepEditor){
+  S.cur = id; S.sim = null; $("simPanel").classList.add("hidden");
+  [...$("seglist").children].forEach((b, i) => b.className = S.segs[i]?.id === id ? "on" : "");
+  const r = await call("GET", "/segments/" + encodeURIComponent(id));
+  if (!r.ok) { showResult(false, r); return; }
+  S.detail = r.data; renderDetail();
+  if (!keepEditor) $("editor").value = JSON.stringify((r.data.draft || r.data.active)?.rule || {all:[]}, null, 2);
+  renderPresets();
+}
+function renderDetail(){
+  const d = S.detail;
+  $("activeVer").textContent = d.active ? "v" + d.active.version : "none";
+  $("activeText").textContent = d.active ? d.active.rule_text : "No active version.";
+  $("draftVer").textContent = d.draft ? `v${d.draft.draft_version} · rev ${d.draft.revision}` : "none";
+  $("draftText").textContent = d.draft ? d.draft.rule_text : "No draft saved.";
+  $("versions").innerHTML = "<tr><th>Version</th><th>Rule</th><th>Published</th><th>By</th><th>Note</th></tr>" +
+    d.versions.slice().reverse().map(v => `<tr><td>v${v.version}${v.version === d.active_version ? " (active)" : ""}</td><td class="small" style="font-family:var(--mono)">${esc(v.rule_text)}</td><td class="small">${esc(v.published_at)}</td><td class="small">${esc(v.published_by)}</td><td class="small">${esc(v.change_note || "")}</td></tr>`).join("");
+  $("audit").innerHTML = "<tr><th>When</th><th>Actor</th><th>Action</th><th>Details</th></tr>" +
+    (d.history.length ? d.history.slice().reverse().map(a => `<tr><td class="small">${esc(a.at)}</td><td class="small">${esc(a.actor)}</td><td>${esc(a.action)}${a.version ? " v"+a.version : ""}</td><td class="small" style="font-family:var(--mono)">${esc(JSON.stringify(a.details))}</td></tr>`).join("") : `<tr><td colspan="4" class="muted">No changes in this sandbox yet.</td></tr>`);
+}
+function renderPresets(){
+  const box = $("presets"); box.innerHTML = '<span class="muted">Try:</span>';
+  const fromActive = document.createElement("button"); fromActive.className = "btn ghost"; fromActive.textContent = "Start from active";
+  fromActive.onclick = () => { $("editor").value = JSON.stringify(S.detail.active?.rule || {all:[]}, null, 2); };
+  box.appendChild(fromActive);
+  (PRESETS[S.cur] || []).forEach(([label, rule]) => {
+    const b = document.createElement("button"); b.className = "btn ghost"; b.textContent = label;
+    b.onclick = () => { $("editor").value = JSON.stringify(rule, null, 2); $("note").value = label; };
+    box.appendChild(b);
+  });
+}
+
+// ---------------------------------------------------------------- actions
+function showResult(ok, r, msg){
+  const e = r?.data?.error;
+  $("actionResult").innerHTML = `<div class="result ${ok ? "ok" : "err"}">${ok ? esc(msg) : `<b>${r.status} ${esc(e?.code || "")}</b>: ${esc(e?.message || "")}` +
+    (e?.details ? `<pre>${esc(JSON.stringify(e.details, null, 2))}</pre>` : "")}</div>`;
+}
+async function saveDraft(){
+  let rule;
+  try { rule = JSON.parse($("editor").value); }
+  catch (err) { $("actionResult").innerHTML = `<div class="result err">The editor doesn't contain valid JSON: ${esc(err.message)}</div>`; return null; }
+  const body = {base_version: S.detail.active_version, rule};
+  if ($("note").value.trim()) body.change_note = $("note").value.trim();
+  const r = await call("PUT", `/segments/${encodeURIComponent(S.cur)}/draft`, body);
+  if (r.ok) { showResult(true, r, `Draft v${r.data.draft_version} (revision ${r.data.revision}) saved and validated: ${r.data.validation.leaf_count} conditions, depth ${r.data.validation.max_depth}.`); await refreshKeep(); }
+  else showResult(false, r);
+  return r.ok;
+}
+async function refreshKeep(){ await loadSegments(S.cur); await selectSegment(S.cur, true); }
+async function simulate(){
+  // save first if the editor differs from the stored draft, so the simulation always covers what you see
+  const edited = (() => { try { return JSON.stringify(JSON.parse($("editor").value)); } catch { return null; } })();
+  if (!S.detail.draft || edited !== JSON.stringify(S.detail.draft.rule)) {
+    const ok = await saveDraft(); if (!ok) return;
+  }
+  const r = await call("POST", `/segments/${encodeURIComponent(S.cur)}/simulations`, {max_sample_flips: 6});
+  if (!r.ok) { showResult(false, r); return; }
+  S.sim = r.data; renderSim();
+  $("simPanel").scrollIntoView({behavior:"smooth", block:"start"});
+}
+function renderSim(){
+  const s = S.sim, m = s.metrics; $("simPanel").classList.remove("hidden");
+  $("simId").textContent = `${s.simulation_id} · active v${s.active_version ?? "–"} vs draft v${s.draft_version} · n=${s.dataset.size}, seed ${s.dataset.seed}`;
+  const dir = x => x > 0 ? "up" : x < 0 ? "down" : "";
+  $("kpis").innerHTML = [
+    ["Active matched", m.active_matched.toLocaleString(), pct(m.active_match_rate, 2) + " match rate"],
+    ["Draft matched", m.draft_matched.toLocaleString(), pct(m.draft_match_rate, 2) + " match rate"],
+    ["Change (pp)", `<span class="${dir(m.pp_change)}">${signed(m.pp_change, " pp")}</span>`, "draft − active match rate"],
+    ["Relative reach", `<span class="${dir(m.relative_reach_change)}">${m.relative_reach_change == null ? "n/a" : signed((m.relative_reach_change*100).toFixed(1), "%")}</span>`, "vs active matched"],
+    ["Newly eligible", `<span class="up">+${m.newly_eligible.toLocaleString()}</span>`, "enter the segment"],
+    ["No longer eligible", `<span class="down">−${m.no_longer_eligible.toLocaleString()}</span>`, "leave the segment"],
+    ["Flip rate", pct(m.flip_rate, 2), m.unchanged.toLocaleString() + " unchanged"],
+  ].map(([l, v, sub]) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="l">${sub}</div></div>`).join("");
+  const max = Math.max(m.active_matched, m.draft_matched, 1);
+  $("bars").innerHTML = `<div class="bar"><span style="width:52px">Active</span><div class="track"><div class="fill" style="width:${100*m.active_matched/max}%"></div></div><span>${m.active_matched}</span></div>
+    <div class="bar"><span style="width:52px">Draft</span><div class="track"><div class="fill d" style="width:${100*m.draft_matched/max}%"></div></div><span>${m.draft_matched}</span></div>`;
+  $("warnings").innerHTML = s.warnings.length ? s.warnings.map(w => `<div class="warn ${w.severity}"><b>${esc(w.severity.toUpperCase())} · ${esc(w.code)}</b>${esc(w.message)}</div>`).join("") : `<div class="warn info"><b>OK</b>No warnings raised.</div>`;
+  $("overlap").innerHTML = "<tr><th>Segment</th><th>Co-eligible requests</th><th>Share of draft</th></tr>" +
+    s.overlap.map(o => `<tr><td>${esc(o.segment_id)} v${o.active_version}</td><td>${o.co_eligible}</td><td>${pct(o.share_of_draft)}</td></tr>`).join("");
+  $("flips").innerHTML = s.sample_flips.length ? s.sample_flips.map(f => {
+    const c = f.context; const chips = Object.entries(c).filter(([k]) => k !== "request_id").map(([k, v]) => `<span class="chip">${esc(k)}=${esc(Array.isArray(v) ? v.join(",") : v)}</span>`).join("");
+    const side = (name, d) => `<div><span class="tag ${d.matched ? "yes" : "no"}">${name}: ${d.matched ? "MATCH" : "NO MATCH"}</span>` +
+      (d.failed.length ? d.failed.map(x => `<div class="cond fail">${esc(x.path)} ${esc(x.attr)} ${esc(x.op)} → ${esc(x.reason)}</div>`).join("") : `<div class="cond ok">all conditions passed</div>`) + "</div>";
+    return `<div class="flip"><div class="row small"><b>${esc(f.request_id)}</b><span class="tag ${f.direction === "newly_eligible" ? "yes" : "no"}">${f.direction.replace(/_/g, " ")}</span></div><div class="chips" style="margin:6px 0">${chips}</div><div class="two">${side("Active", f.active)}${side("Draft", f.draft)}</div></div>`;
+  }).join("") : `<div class="muted small">No decisions changed.</div>`;
+  const needs = s.warnings.filter(w => w.severity === "warn");
+  const blocks = s.warnings.filter(w => w.severity === "block");
+  $("ack").innerHTML = blocks.length ? `<div class="warn block"><b>BLOCKED</b>A blocking warning stops this draft from being published. Fix the rule and simulate again.</div>` :
+    (needs.length ? needs.map(w => `<label><input type="checkbox" value="${esc(w.code)}"> I've reviewed <b>${esc(w.code)}</b> and it's intended</label>`).join("") : `<div class="small muted">No warnings need acknowledgement.</div>`);
+  $("disclaimer").textContent = s.disclaimer;
+}
+async function publish(){
+  if (!S.sim) return;
+  const ack = [...$("ack").querySelectorAll("input:checked")].map(i => i.value);
+  const body = {draft_version: S.sim.draft_version, expected_active_version: S.sim.active_version, simulation_id: S.sim.simulation_id, acknowledge_warnings: ack};
+  if ($("note").value.trim()) body.change_note = $("note").value.trim();
+  const r = await call("POST", `/segments/${encodeURIComponent(S.cur)}/publish`, body);
+  if (r.ok) {
+    showResult(true, r, `Published v${r.data.active_version} (was v${r.data.previous_version}). Audit entry ${r.data.audit_id}. Evaluation now uses the new version.`);
+    $("simPanel").classList.add("hidden"); S.sim = null; await refreshKeep();
+  } else { showResult(false, r); $("actionResult").scrollIntoView({behavior:"smooth", block:"center"}); }
+}
+
+// ---------------------------------------------------------------- evaluate
+function fillSelect(id, values){ $(id).innerHTML = `<option value="">(missing)</option>` + values.map(v => `<option>${v}</option>`).join(""); }
+function setCtx(c){
+  $("c_pub").value = c.publisher_id || ""; $("c_country").value = c.country || ""; $("c_device").value = c.device_type || ""; $("c_place").value = c.placement_type || "";
+  $("c_cats").querySelectorAll("input").forEach(i => i.checked = (c.content_category || []).includes(i.value));
+}
+async function evaluate(){
+  const ctx = {request_id: "playground_" + Date.now()};
+  [["publisher_id","c_pub"],["country","c_country"],["device_type","c_device"],["placement_type","c_place"]].forEach(([k, id]) => { if ($(id).value) ctx[k] = $(id).value; });
+  const cats = [...$("c_cats").querySelectorAll("input:checked")].map(i => i.value);
+  if (cats.length) ctx.content_category = cats;
+  const r = await call("POST", "/evaluate" + ($("c_debug").checked ? "?debug=true" : ""), {context: ctx});
+  if (!r.ok) { const e = r.data?.error; $("evalOut").innerHTML = `<div class="result err"><b>${r.status} ${esc(e?.code)}</b>: ${esc(e?.message)}</div>`; return; }
+  const name = id => S.segs.find(s => s.id === id)?.name || id;
+  $("evalOut").innerHTML = `<table><tr><th>Segment</th><th>Version</th><th>Decision</th><th>Why</th></tr>` + r.data.results.map(x =>
+    `<tr><td>${esc(name(x.segment_id))}<div class="small muted">${esc(x.segment_id)}</div></td><td>v${x.version}</td><td><span class="tag ${x.matched ? "yes" : "no"}">${x.matched ? "MATCH" : "NO MATCH"}</span></td><td>` +
+    (x.trace ? x.trace.map(t => `<div class="cond ${t.passed ? "ok" : "fail"}">${esc(t.path)} ${esc(t.attr)} ${esc(t.op)} → ${esc(t.reason)}${t.matched_values ? " [" + esc(t.matched_values.join(",")) + "]" : ""}</div>`).join("") :
+      (x.reason_codes ? x.reason_codes.map(c => `<span class="chip">${esc(c)}</span>`).join(" ") : (x.matched ? `<span class="muted small">all conditions passed</span>` : ""))) + `</td></tr>`).join("") + `</table>`;
+}
+
+// ---------------------------------------------------------------- boot
+async function boot(){
+  S.role = store.get("sl_role") || "editor";
+  S.session = store.get("sl_session");
+  if (!S.session || new Date(S.session.expires_at) <= new Date()) await newSession();
+  renderRoles();
+  fillSelect("c_pub", VOCAB.publisher_id); fillSelect("c_country", VOCAB.country); fillSelect("c_device", VOCAB.device_type); fillSelect("c_place", VOCAB.placement_type);
+  $("c_cats").innerHTML = VOCAB.content_category.map(c => `<label><input type="checkbox" value="${c}">${c}</label>`).join("");
+  $("ctxPresets").innerHTML = '<span class="muted">Try:</span>';
+  CTX_PRESETS.forEach(([label, c]) => { const b = document.createElement("button"); b.className = "btn ghost"; b.textContent = label; b.onclick = () => setCtx(c); $("ctxPresets").appendChild(b); });
+  setCtx(CTX_PRESETS[0][1]);
+  const prevRole = S.role; S.role = "viewer";
+  const ds = await call("GET", "/dataset"); S.role = prevRole;
+  if (ds.ok) $("datasetInfo").textContent = `Sample: ${ds.data.size.toLocaleString()} synthetic requests · seed ${ds.data.seed} · ${pct(ds.data.distributions.content_category_missing)} unclassified pages`;
+  const r0 = S.role; S.role = "viewer"; await loadSegments(); S.role = r0;   // initial read uses viewer
+  document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+    ["change","evaluate","history"].forEach(t => $("tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  });
+  $("saveBtn").onclick = saveDraft; $("simBtn").onclick = simulate; $("pubBtn").onclick = publish; $("evalBtn").onclick = evaluate;
+  $("resetBtn").onclick = async () => { const r = await call("POST", "/demo/reset"); if (r.status === 204) { S.cur = null; await loadSegments(); showResult(true, r, "Sandbox reset to seed data."); } else showResult(false, r); };
+}
+boot();
+</script>
+</body>
+</html>

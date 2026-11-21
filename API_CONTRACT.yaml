@@ -1,0 +1,641 @@
+openapi: 3.1.0
+info:
+  title: SegmentLens - Targeting Segment API (Media.net APM case prototype)
+  version: 1.0.0
+  description: |
+    Internal API for contextual targeting segments with simulation-gated publishing.
+    All data is synthetic. Simulation results are
+    not forecasts of impressions, revenue or real reach.
+servers:
+  - url: /api/v1
+security:
+  - bearerToken: []
+tags:
+  - name: demo
+  - name: segments
+  - name: simulation
+  - name: evaluation
+
+paths:
+  /demo/sessions:
+    post:
+      tags: [demo]
+      summary: Create an isolated sandbox and issue server-side tokens for the demo identities
+      security: []
+      description: Returns one viewer, one editor and one evaluator token for a fresh isolated sandbox (2 h TTL). Rate-limited per client IP.
+      responses:
+        '201':
+          description: Sandbox created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DemoSession'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+
+  /demo/reset:
+    post:
+      tags: [demo]
+      summary: Reset the caller's sandbox to seed data
+      responses:
+        '204': {description: Reset}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+
+  /dataset:
+    get:
+      tags: [simulation]
+      summary: Describe the synthetic request sample used for simulations
+      responses:
+        '200':
+          description: Dataset description
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Dataset'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+
+  /segments:
+    get:
+      tags: [segments]
+      summary: List segments with active version and draft status
+      x-required-scope: segments:read
+      responses:
+        '200':
+          description: Segments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/SegmentSummary'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+
+  /segments/{segment_id}:
+    parameters:
+      - $ref: '#/components/parameters/SegmentId'
+    get:
+      tags: [segments]
+      summary: Segment detail with active definition, draft and version history
+      x-required-scope: segments:read
+      responses:
+        '200':
+          description: Segment
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SegmentDetail'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /segments/{segment_id}/draft:
+    parameters:
+      - $ref: '#/components/parameters/SegmentId'
+    put:
+      tags: [segments]
+      summary: Create or replace the segment's draft version
+      x-required-scope: segments:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DraftRequest'}
+      responses:
+        '201':
+          description: Draft created or replaced
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Draft'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '411': {$ref: '#/components/responses/LengthRequired'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+
+  /segments/{segment_id}/simulations:
+    parameters:
+      - $ref: '#/components/parameters/SegmentId'
+    post:
+      tags: [simulation]
+      summary: Compare active vs draft on the same synthetic sample
+      x-required-scope: simulations:run
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SimulationRequest'}
+      responses:
+        '201':
+          description: Simulation result (stored, referenced by publish)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Simulation'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+
+  /segments/{segment_id}/simulations/{simulation_id}:
+    parameters:
+      - $ref: '#/components/parameters/SegmentId'
+      - name: simulation_id
+        in: path
+        required: true
+        schema: {type: string, pattern: '^sim_[A-Za-z0-9]{6,32}$'}
+    get:
+      tags: [simulation]
+      summary: Read a stored simulation result
+      x-required-scope: simulations:read
+      responses:
+        '200':
+          description: Simulation
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Simulation'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /segments/{segment_id}/publish:
+    parameters:
+      - $ref: '#/components/parameters/SegmentId'
+    post:
+      tags: [segments]
+      summary: Atomically publish a simulated draft
+      description: |
+        Requires a simulation run on exactly this draft (matching rule_hash) against the
+        current active version. Warn-level warnings must be acknowledged; block-level
+        warnings (ZERO_MATCH) prevent publishing.
+      x-required-scope: segments:publish
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PublishRequest'}
+      responses:
+        '200':
+          description: Published
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PublishResponse'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+
+  /evaluate:
+    post:
+      tags: [evaluation]
+      summary: Evaluate one ad-request context against active segment versions
+      x-required-scope: evaluate:run
+      parameters:
+        - name: debug
+          in: query
+          required: false
+          description: Return per-condition traces. Requires scope evaluate:trace.
+          schema: {type: boolean, default: false}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/EvaluateRequest'}
+      responses:
+        '200':
+          description: Evaluation results
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/EvaluateResponse'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+
+components:
+  securitySchemes:
+    bearerToken:
+      type: http
+      scheme: bearer
+      description: Opaque server-side token issued by POST /demo/sessions. Scopes are held server-side.
+
+  parameters:
+    SegmentId:
+      name: segment_id
+      in: path
+      required: true
+      schema: {type: string, pattern: '^seg_[a-z0-9_]{1,48}$'}
+
+  responses:
+    Unauthenticated:
+      description: Missing or invalid token (code UNAUTHENTICATED)
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Forbidden:
+      description: Token lacks the required scope (code FORBIDDEN)
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    NotFound:
+      description: Not found in caller's sandbox (code NOT_FOUND)
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Conflict:
+      description: |
+        VERSION_CONFLICT | SIMULATION_STALE | UNACKNOWLEDGED_WARNINGS | BLOCKING_WARNING | NO_DRAFT
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    LengthRequired:
+      description: Chunked request bodies are rejected; send Content-Length (code LENGTH_REQUIRED)
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    PayloadTooLarge:
+      description: Body exceeds 16 KB (code PAYLOAD_TOO_LARGE)
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    ValidationFailed:
+      description: Request or rule failed validation (code VALIDATION_FAILED)
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    RateLimited:
+      description: Rate limit exceeded (code RATE_LIMITED); see Retry-After header
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+
+  schemas:
+    Role:
+      type: string
+      enum: [viewer, editor, evaluator]
+
+    DemoSession:
+      type: object
+      required: [sandbox_id, expires_at, identities]
+      properties:
+        sandbox_id: {type: string, example: sbx_7f3a}
+        expires_at: {type: string, format: date-time}
+        identities:
+          type: array
+          items:
+            type: object
+            required: [role, principal, token, scopes]
+            properties:
+              role: {$ref: '#/components/schemas/Role'}
+              principal: {type: string, example: demo-editor@sbx_7f3a}
+              token: {type: string}
+              scopes:
+                type: array
+                items: {type: string}
+
+    Attribute:
+      type: string
+      enum: [content_category, country, device_type, placement_type, publisher_id]
+
+    Leaf:
+      type: object
+      additionalProperties: false
+      required: [attr, op]
+      properties:
+        attr: {$ref: '#/components/schemas/Attribute'}
+        op: {type: string, enum: [eq, in, not_in]}
+        value:
+          type: string
+          maxLength: 64
+          description: Required when op = eq
+        values:
+          type: array
+          minItems: 1
+          maxItems: 50
+          uniqueItems: true
+          items: {type: string, maxLength: 64}
+          description: Required when op = in | not_in
+
+    Rule:
+      description: |
+        Boolean rule tree. Max depth 4, max 20 leaves. For multi-valued content_category,
+        `in` = non-empty intersection, `not_in` = empty intersection, `eq` = contains value.
+        A missing context attribute makes the leaf evaluate false (fail closed, reason MISSING_ATTRIBUTE).
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [all]
+          properties:
+            all:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items: {$ref: '#/components/schemas/Rule'}
+        - type: object
+          additionalProperties: false
+          required: [any]
+          properties:
+            any:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items: {$ref: '#/components/schemas/Rule'}
+        - $ref: '#/components/schemas/Leaf'
+
+    SegmentVersion:
+      type: object
+      required: [version, rule, rule_hash, published_at, published_by]
+      properties:
+        version: {type: integer, minimum: 1}
+        rule: {$ref: '#/components/schemas/Rule'}
+        rule_hash: {type: string}
+        rule_text: {type: string, description: Human-readable rendering of the rule}
+        published_at: {type: string, format: date-time}
+        published_by: {type: string}
+        change_note: {type: [string, 'null']}
+        simulation_id: {type: [string, 'null']}
+        acknowledged_warnings:
+          type: array
+          items: {type: string}
+
+    SegmentSummary:
+      type: object
+      required: [id, name, active_version, has_draft, updated_at]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        description: {type: string}
+        active_version: {type: [integer, 'null']}
+        has_draft: {type: boolean}
+        draft_version: {type: [integer, 'null']}
+        updated_at: {type: string, format: date-time}
+
+    SegmentDetail:
+      allOf:
+        - $ref: '#/components/schemas/SegmentSummary'
+        - type: object
+          properties:
+            active: {oneOf: [{$ref: '#/components/schemas/SegmentVersion'}, {type: 'null'}]}
+            draft: {oneOf: [{$ref: '#/components/schemas/Draft'}, {type: 'null'}]}
+            history:
+              type: array
+              items: {$ref: '#/components/schemas/AuditEntry'}
+            versions:
+              type: array
+              items:
+                type: object
+                required: [version, rule_text, published_at, published_by]
+                properties:
+                  version: {type: integer}
+                  rule_text: {type: string}
+                  published_at: {type: string, format: date-time}
+                  published_by: {type: string}
+                  change_note: {type: [string, 'null']}
+
+    DraftRequest:
+      type: object
+      additionalProperties: false
+      required: [base_version, rule]
+      properties:
+        base_version:
+          type: [integer, 'null']
+          description: Active version the draft is based on; must equal current active_version.
+        rule: {$ref: '#/components/schemas/Rule'}
+        change_note: {type: string, maxLength: 280}
+
+    Draft:
+      type: object
+      required: [segment_id, draft_version, base_version, revision, rule, rule_hash, status, updated_by, updated_at]
+      properties:
+        segment_id: {type: string}
+        draft_version: {type: integer}
+        base_version: {type: [integer, 'null']}
+        revision: {type: integer}
+        rule: {$ref: '#/components/schemas/Rule'}
+        rule_hash: {type: string}
+        status: {type: string, enum: [draft]}
+        rule_text: {type: string}
+        validation:
+          type: object
+          properties:
+            valid: {type: boolean}
+            leaf_count: {type: integer}
+            max_depth: {type: integer}
+        change_note: {type: [string, 'null']}
+        updated_by: {type: string}
+        updated_at: {type: string, format: date-time}
+
+    AdContext:
+      type: object
+      additionalProperties: false
+      description: Contextual signals only. Any attribute may be absent.
+      properties:
+        request_id: {type: string, maxLength: 64}
+        publisher_id: {type: string, maxLength: 64}
+        country: {type: string, pattern: '^[A-Z]{2}$'}
+        device_type: {type: string, enum: [mobile, desktop, tablet, ctv]}
+        placement_type: {type: string, enum: [display, native, video]}
+        content_category:
+          type: array
+          maxItems: 10
+          items: {type: string, maxLength: 64}
+
+    ConditionTrace:
+      type: object
+      required: [path, attr, op, passed, reason]
+      properties:
+        path: {type: string, example: 'all[0]'}
+        attr: {$ref: '#/components/schemas/Attribute'}
+        op: {type: string}
+        passed: {type: boolean}
+        reason:
+          type: string
+          enum: [EQUAL, NOT_EQUAL, IN_SET, NOT_IN_SET, INTERSECTS, NO_INTERSECTION, EXCLUDED, NOT_EXCLUDED, MISSING_ATTRIBUTE]
+        matched_values:
+          type: array
+          items: {type: string}
+
+    VersionDecision:
+      type: object
+      required: [matched]
+      properties:
+        matched: {type: boolean}
+        failed:
+          type: array
+          items: {$ref: '#/components/schemas/ConditionTrace'}
+
+    Dataset:
+      type: object
+      required: [id, seed, size, synthetic]
+      properties:
+        id: {type: string, example: synthetic-v1}
+        seed: {type: integer}
+        size: {type: integer}
+        synthetic: {type: boolean, const: true}
+        distributions:
+          type: object
+          description: Marginal distributions and missing-value rates per attribute.
+          additionalProperties: true
+
+    SimulationRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        compare_with:
+          type: array
+          maxItems: 5
+          items: {type: string}
+          description: Active segments to compute co-eligibility against. Defaults to all other active segments.
+        max_sample_flips:
+          type: integer
+          minimum: 0
+          maximum: 20
+          default: 10
+
+    Warning:
+      type: object
+      required: [code, severity, message]
+      properties:
+        code:
+          type: string
+          enum: [ZERO_MATCH, REACH_DROP, REACH_EXPANSION, HIGH_FLIP_RATE, HIGH_OVERLAP, MISSING_DATA_EXPOSURE]
+        severity: {type: string, enum: [info, warn, block]}
+        message: {type: string}
+        metric: {type: string}
+        value: {type: [number, 'null']}
+        threshold: {type: [number, 'null']}
+
+    Simulation:
+      type: object
+      required: [simulation_id, segment_id, active_version, draft_version, draft_rule_hash, dataset, metrics, warnings, sample_flips, disclaimer, created_at]
+      properties:
+        simulation_id: {type: string}
+        segment_id: {type: string}
+        active_version: {type: [integer, 'null']}
+        draft_version: {type: integer}
+        draft_revision: {type: integer}
+        draft_rule_hash: {type: string}
+        dataset: {$ref: '#/components/schemas/Dataset'}
+        metrics:
+          type: object
+          required: [active_matched, draft_matched, active_match_rate, draft_match_rate, pp_change, relative_reach_change, newly_eligible, no_longer_eligible, unchanged, flip_rate]
+          properties:
+            active_matched: {type: integer}
+            draft_matched: {type: integer}
+            active_match_rate: {type: number, description: active_matched / dataset.size}
+            draft_match_rate: {type: number, description: draft_matched / dataset.size}
+            pp_change: {type: number, description: (draft_match_rate - active_match_rate) * 100}
+            relative_reach_change:
+              type: [number, 'null']
+              description: (draft_matched - active_matched) / active_matched; null if active_matched = 0
+            newly_eligible: {type: integer}
+            no_longer_eligible: {type: integer}
+            unchanged: {type: integer}
+            flip_rate: {type: number, description: (newly_eligible + no_longer_eligible) / dataset.size}
+        overlap:
+          type: array
+          items:
+            type: object
+            properties:
+              segment_id: {type: string}
+              active_version: {type: integer}
+              co_eligible: {type: integer}
+              share_of_draft:
+                type: [number, 'null']
+                description: co_eligible / draft_matched; null if draft_matched = 0. Co-eligibility, not cannibalisation.
+        warnings:
+          type: array
+          items: {$ref: '#/components/schemas/Warning'}
+        sample_flips:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            properties:
+              request_id: {type: string}
+              direction: {type: string, enum: [newly_eligible, no_longer_eligible]}
+              context: {$ref: '#/components/schemas/AdContext'}
+              active: {$ref: '#/components/schemas/VersionDecision'}
+              draft: {$ref: '#/components/schemas/VersionDecision'}
+        disclaimer: {type: string}
+        created_at: {type: string, format: date-time}
+        created_by: {type: string}
+
+    PublishRequest:
+      type: object
+      additionalProperties: false
+      required: [draft_version, expected_active_version, simulation_id]
+      properties:
+        draft_version: {type: integer}
+        expected_active_version: {type: [integer, 'null']}
+        simulation_id: {type: string}
+        acknowledge_warnings:
+          type: array
+          maxItems: 10
+          items: {type: string}
+        change_note: {type: string, maxLength: 280}
+
+    PublishResponse:
+      type: object
+      required: [segment_id, active_version, previous_version, rule_hash, published_by, published_at, audit_id]
+      properties:
+        segment_id: {type: string}
+        active_version: {type: integer}
+        previous_version: {type: [integer, 'null']}
+        rule_hash: {type: string}
+        published_by: {type: string}
+        published_at: {type: string, format: date-time}
+        audit_id: {type: string}
+
+    EvaluateRequest:
+      type: object
+      additionalProperties: false
+      required: [context]
+      properties:
+        context: {$ref: '#/components/schemas/AdContext'}
+        segment_ids:
+          type: array
+          maxItems: 50
+          items: {type: string}
+          description: Restrict to these segments; default all active segments.
+
+    EvaluateResponse:
+      type: object
+      required: [results, evaluated_at]
+      properties:
+        request_id: {type: [string, 'null']}
+        results:
+          type: array
+          items:
+            type: object
+            required: [segment_id, version, matched]
+            properties:
+              segment_id: {type: string}
+              version: {type: integer}
+              matched: {type: boolean}
+              reason_codes:
+                type: array
+                description: Coarse codes (e.g. NOT_EQUAL:device_type). Always present on no-match.
+                items: {type: string}
+              trace:
+                type: array
+                description: Present only with debug=true and scope evaluate:trace.
+                items: {$ref: '#/components/schemas/ConditionTrace'}
+        evaluated_at: {type: string, format: date-time}
+
+    AuditEntry:
+      type: object
+      required: [audit_id, at, actor, action, segment_id]
+      properties:
+        audit_id: {type: string}
+        at: {type: string, format: date-time}
+        actor: {type: string}
+        action: {type: string, enum: [draft_saved, simulated, published, reset]}
+        segment_id: {type: string}
+        version: {type: [integer, 'null']}
+        details: {type: object, additionalProperties: true}
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code:
+              type: string
+              enum: [UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, METHOD_NOT_ALLOWED, VALIDATION_FAILED, PAYLOAD_TOO_LARGE, LENGTH_REQUIRED, RATE_LIMITED, HTTP_ERROR, VERSION_CONFLICT, SIMULATION_STALE, UNACKNOWLEDGED_WARNINGS, BLOCKING_WARNING, NO_DRAFT, INTERNAL]
+            message: {type: string}
+            request_id: {type: string}
+            details:
+              type: array
+              items: {type: object, additionalProperties: true}
