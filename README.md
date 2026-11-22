@@ -8,6 +8,7 @@ every warning must be explicitly acknowledged.
 
 > All data is synthetic. Nothing here uses or claims to reflect Media.net's internal systems or data.
 
+- **Live demo:** https://segmentlens.onrender.com (free tier: the first load after idle can take up to about a minute)
 - **Playground:** `/` (a web UI that calls the real API, with a live request log)
 - **Interactive API docs:** `/docs` (Swagger UI rendered from the canonical `API_CONTRACT.yaml`)
 - **Contract:** `/api/v1/contract.yaml` (OpenAPI 3.1)

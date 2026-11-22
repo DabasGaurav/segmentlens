@@ -21,9 +21,15 @@ There's one warning, a third-party deprecation notice inside Starlette's TestCli
 | Production start command (`uvicorn … --proxy-headers`) with pinned dependencies: `/healthz`, `/`, `/docs` and `/api/v1/contract.yaml` return 200 | Pass |
 | Performance (in-process) | About 0.64 µs per segment evaluation; cold simulation about 70 ms (20k requests, 5 rules) |
 
+## Live deployment check (https://segmentlens.onrender.com, 22 Nov 2026)
+Render built the Docker image (free plan, deploy took 33 s), and the service is Live. I ran the whole flow against production from a browser:
+new session 201 · list of 4 seed segments · no token 401 · viewer draft 403 · editor draft 201 · simulation 201 with
+**exactly the same metrics as local** (880 → 1,578 matched, +79.32%, 698 newly eligible, flip rate 3.49%) · publish without
+acknowledgement 409 `UNACKNOWLEDGED_WARNINGS` · viewer publish 403 · publish 200 → v4 · replay 409 · evaluator now matches v4 ·
+evaluator debug 403 · oversized body 413 · unknown attribute 422 `UNKNOWN_ATTRIBUTE` · `/docs`, `/api/v1/contract.yaml`, `/healthz` 200 ·
+security headers present. I also checked the playground and Swagger UI visually.
+
 ## Not tested or unresolved
-- **Docker image build:** no Docker daemon was available in the build environment. The Dockerfile is minimal
-  and its start command was run directly with the same pinned dependencies. It will be confirmed on first deploy.
 - **Load testing** of the deployed instance wasn't done. The free tier is sized for a handful of reviewers.
 - **Rate limiting behind a proxy** trusts the left-most `X-Forwarded-For` value when `TRUST_PROXY=1`, which a
   client can spoof. That's acceptable for a demo, and production would use the edge's verified client IP.
